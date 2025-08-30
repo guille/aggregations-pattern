@@ -1,0 +1,14 @@
+
+<div id="aggregate"
+     class="text-6xl font-extrabold text-green-600 transition-transform duration-300"
+     hx-get="/aggregations"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML">
+  <div class="animate-pop">
+    {% if total is defined %}
+      {{ total }}
+    {% else %}
+      0.00
+    {% endif %}
+  </div>
+</div>

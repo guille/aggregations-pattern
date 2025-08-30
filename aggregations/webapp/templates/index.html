@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.2" integrity="sha384-Y4gc0CK6Kg+hmulDc6rZPJu0tqvk7EWlih0Oh+2OkAi1ZDlCbBDCQEE2uVk472Ky" crossorigin="anonymous"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.5); }
+    100% { transform: scale(1); }
+  }
+
+  .animate-pop {
+    animation: pop 1s ease-out;
+  }
+  </style>
+</head>
+<body class="h-screen bg-gray-100 flex">
+
+  <!-- Left pane -->
+  <div class="w-1/2 p-6 flex flex-col border-r border-gray-300 bg-white shadow">
+    <h2 class="text-xl font-bold mb-4">Source DB</h2>
+
+    <form hx-post="/invoices" hx-target="#invoices-list" hx-swap="outerHTML"
+          class="flex gap-2 mb-4">
+      <input type="text" name="name" placeholder="Name"
+             class="flex-1 px-3 py-2 border rounded-lg shadow-sm" required>
+      <input type="number" name="total" placeholder="Total"
+             class="w-28 px-3 py-2 border rounded-lg shadow-sm" required>
+      <button type="submit"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700">
+        Insert
+      </button>
+    </form>
+
+    <div id="invoices-list" hx-get="/invoices" hx-trigger="load">
+    </div>
+  </div>
+
+  <!-- Right pane -->
+  <div class="w-1/2 p-6 flex flex-col bg-white shadow items-center justify-center">
+    <h2 class="text-xl font-bold mb-4">Total Sum (Aggregates DB)</h2>
+      {% include 'aggregate.html' %}
+  </div>
+
+  <script>
+    // Somehow this took longer than setting up Pulsar + Postgres replication
+    // Skill issue, I guess
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      if (!evt.target.id==="aggregate") return;
+
+      const oldValue = evt.detail.target.textContent.trim();
+      const newValue = evt.target.textContent.trim();
+
+      const smallDiv = evt.target.querySelector('.animate-pop')
+      if (smallDiv === null) return;
+
+      smallDiv.classList.remove('animate-pop');
+      if (newValue !== oldValue) {
+        void smallDiv.offsetWidth; // force reflow
+        smallDiv.classList.add('animate-pop');
+        smallDiv.dataset.prev = newValue;
+      }
+  })
+  </script>
+</body>
+</html>

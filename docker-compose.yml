@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: quay.io/debezium/postgres:16
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - "$PWD/docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  pulsar:
+    image: apachepulsar/pulsar:4.0.6
+    restart: always
+    ports:
+      - "6650:6650"
+      - "8080:8080"
+    command: ["bin/pulsar", "standalone"]
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/admin/clusters"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  debezium:
+    image: quay.io/debezium/server
+    restart: always
+    ports:
+      - "9080:8080"
+    depends_on:
+      "pulsar":
+        condition: "service_healthy"
+      "postgres":
+        condition: "service_healthy"
+    links:
+      - "pulsar"
+      - "postgres"
+    volumes:
+      - "$PWD/docker/config:/debezium/config"
+      # - "debezium-data:/debezium/data"
+# volumes:
+#   debezium-data:

@@ -1,0 +1,36 @@
+<table class="w-full border-collapse" id="source-table">
+  <thead>
+    <tr class="bg-gray-200">
+      <th class="text-left p-2 border">ID</th>
+      <th class="text-left p-2 border">Name</th>
+      <th class="text-left p-2 border">Total</th>
+      <th class="text-left p-2 border">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr class="odd:bg-gray-50">
+      <td class="p-2 border">{{ r[0] }}</td>
+      <td class="p-2 border">
+        <form hx-put="/invoices/{{ r[0] }}" hx-target="#source-table" hx-swap="outerHTML"
+              class="flex gap-2">
+          <input type="text" name="name" value="{{ r[1] }}"
+                 class="flex-1 px-2 py-1 border rounded">
+          <input type="number" name="total" value="{{ r[2] }}"
+                 class="w-20 px-2 py-1 border rounded">
+          <button type="submit" class="px-2 py-1 bg-blue-600 text-white rounded">💾</button>
+        </form>
+      </td>
+      <td class="p-2 border">{{ r[2] }}</td>
+      <td class="p-2 border text-center">
+        <button hx-delete="/invoices/{{ r[0] }}"
+                hx-target="#source-table"
+                hx-swap="outerHTML"
+                class="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700">
+          ✖
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

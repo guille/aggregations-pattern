@@ -1,11 +1,12 @@
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from aggregations.repos.invoices import InvoicesRepo
 from aggregations.repos.aggregates import AggregatesRepo
+from aggregations.repos.invoices import InvoicesRepo
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -19,9 +20,9 @@ def index(request: Request):
 
 @app.post("/invoices")
 async def create_invoice(
-    request: Request, name: str = Form(...), total: int = Form(...)
+    request: Request, name: Annotated[str, Form()], total: Annotated[int, Form()]
 ):
-    InvoicesRepo.create(name, total)
+    _ = InvoicesRepo.create(name, total)
     rows = InvoicesRepo.get_all()
     return templates.TemplateResponse(
         "invoices.html", {"request": request, "rows": rows}
@@ -30,9 +31,12 @@ async def create_invoice(
 
 @app.put("/invoices/{id}")
 async def update_invoice(
-    request: Request, id: int, name: str = Form(...), total: int = Form(...)
+    request: Request,
+    id: int,
+    name: Annotated[str, Form()],
+    total: Annotated[int, Form()],
 ):
-    InvoicesRepo.update(id, name, total)
+    _ = InvoicesRepo.update(id, name, total)
     rows = InvoicesRepo.get_all()
     return templates.TemplateResponse(
         "invoices.html", {"request": request, "rows": rows}
@@ -41,7 +45,7 @@ async def update_invoice(
 
 @app.delete("/invoices/{id}")
 async def delete_invoice(request: Request, id: int):
-    InvoicesRepo.delete(id)
+    _ = InvoicesRepo.delete(id)
     rows = InvoicesRepo.get_all()
     return templates.TemplateResponse(
         "invoices.html", {"request": request, "rows": rows}

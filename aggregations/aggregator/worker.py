@@ -1,15 +1,16 @@
 import json
 import traceback
-import pulsar
-
+from collections.abc import Mapping
 from contextlib import contextmanager
 from decimal import Decimal
+from typing import Any
+
+import pulsar
 
 from aggregations.config import PULSAR_URL
 from aggregations.db import target_db
-from aggregations.repos.cdc_entries import CdcEntriesRepo
 from aggregations.repos.aggregates import AggregatesRepo
-
+from aggregations.repos.cdc_entries import CdcEntriesRepo
 
 decimal_zero = Decimal(0)
 
@@ -25,7 +26,7 @@ def pulsar_client(*args, **kwargs):
         client.close()
 
 
-def create(payload: dict):
+def create(payload: Mapping[str, Any]):
     event_lsn = payload["source"]["lsn"]
     new_record = payload["after"]
 
@@ -51,7 +52,7 @@ def create(payload: dict):
         )
 
 
-def update(payload: dict):
+def update(payload: Mapping[str, Any]):
     event_lsn = payload["source"]["lsn"]
     new_record = payload["after"]
 
@@ -78,7 +79,7 @@ def update(payload: dict):
         )
 
 
-def delete(payload: dict):
+def delete(payload: Mapping[str, Any]):
     event_lsn = payload["source"]["lsn"]
     old_record = payload["before"]
 

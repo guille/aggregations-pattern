@@ -1,15 +1,19 @@
+from abc import ABC
+from collections.abc import Generator
 from contextlib import contextmanager
-from aggregations.db import DB
+from typing import ClassVar
+
 from psycopg import Cursor
-from typing import Optional
+
+from aggregations.db import DB
 
 
-class BaseRepo:
-    _db: DB
+class BaseRepo(ABC):
+    _db: ClassVar[DB]
 
     @classmethod
     @contextmanager
-    def _with_cursor(cls, cur: Optional[Cursor] = None):
+    def _with_cursor(cls, cur: Cursor | None = None) -> Generator[Cursor, None, None]:
         if cur is not None:
             yield cur
         else:

@@ -37,3 +37,9 @@ alias = 'w'
 [tasks.pgcli]
 description = "Attach pgcli to the running container"
 run = "pgcli postgresql://postgres:postgres@localhost:5432"
+
+[hooks]
+postinstall = [
+	"uv sync",
+	"mise r hooks",
+]

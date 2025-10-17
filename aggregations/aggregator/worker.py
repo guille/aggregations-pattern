@@ -1,12 +1,16 @@
-import json
 import traceback
-from collections.abc import Mapping
 from contextlib import contextmanager
 from decimal import Decimal
-from typing import Any
 
+import msgspec
 import pulsar
 
+from aggregations.aggregator.event_message import (
+    CreatePayload,
+    DeletePayload,
+    EventMessage,
+    UpdatePayload,
+)
 from aggregations.config import PULSAR_URL
 from aggregations.db import target_db
 from aggregations.repos.aggregates import AggregatesRepo
@@ -16,8 +20,8 @@ decimal_zero = Decimal(0)
 
 
 @contextmanager
-def pulsar_client(*args, **kwargs):
-    client = pulsar.Client(*args, **kwargs)
+def pulsar_client(service_url: str):
+    client = pulsar.Client(service_url=service_url)
     try:
         yield client
     except pulsar.Interrupted:
@@ -26,12 +30,12 @@ def pulsar_client(*args, **kwargs):
         client.close()
 
 
-def create(payload: Mapping[str, Any]):
-    event_lsn = payload["source"]["lsn"]
-    new_record = payload["after"]
+def create(payload: CreatePayload):
+    event_lsn = payload.source.lsn
+    new_record = payload.after
 
-    with target_db.transaction() as (conn, cur):
-        existing_row = CdcEntriesRepo.get_for_update(new_record["id"], cursor=cur)
+    with target_db.transaction() as (_conn, cur):
+        existing_row = CdcEntriesRepo.get_for_update(new_record.id, cursor=cur)
 
         if existing_row:
             existing_lsn = existing_row[0]
@@ -44,20 +48,18 @@ def create(payload: Mapping[str, Any]):
                 # Basically: a deleted primary key is being reused!
                 raise Exception("Conflict!! Something has gone terribly wrong!")
 
-        CdcEntriesRepo.create(
-            new_record["id"], new_record["total"], event_lsn, cursor=cur
-        )
+        CdcEntriesRepo.create(new_record.id, new_record.total, event_lsn, cursor=cur)
         AggregatesRepo.update(
-            old_total=decimal_zero, total=new_record["total"], cursor=cur
+            old_total=decimal_zero, total=new_record.total, cursor=cur
         )
 
 
-def update(payload: Mapping[str, Any]):
-    event_lsn = payload["source"]["lsn"]
-    new_record = payload["after"]
+def update(payload: UpdatePayload):
+    event_lsn = payload.source.lsn
+    new_record = payload.after
 
-    with target_db.transaction() as (conn, cur):
-        existing_row = CdcEntriesRepo.get_for_update(new_record["id"], cursor=cur)
+    with target_db.transaction() as (_conn, cur):
+        existing_row = CdcEntriesRepo.get_for_update(new_record.id, cursor=cur)
 
         if existing_row:
             existing_lsn = existing_row[0]
@@ -67,24 +69,24 @@ def update(payload: Mapping[str, Any]):
                 return
             else:
                 CdcEntriesRepo.update(
-                    new_record["id"], new_record["total"], event_lsn, cursor=cur
+                    new_record.id, new_record.total, event_lsn, cursor=cur
                 )
         else:
             existing_total = decimal_zero
             CdcEntriesRepo.create(
-                new_record["id"], new_record["total"], event_lsn, cursor=cur
+                new_record.id, new_record.total, event_lsn, cursor=cur
             )
         AggregatesRepo.update(
-            old_total=existing_total, total=new_record["total"], cursor=cur
+            old_total=existing_total, total=new_record.total, cursor=cur
         )
 
 
-def delete(payload: Mapping[str, Any]):
-    event_lsn = payload["source"]["lsn"]
-    old_record = payload["before"]
+def delete(payload: DeletePayload):
+    event_lsn = payload.source.lsn
+    old_record = payload.before
 
-    with target_db.transaction() as (conn, cur):
-        existing_row = CdcEntriesRepo.get_for_update(old_record["id"], cursor=cur)
+    with target_db.transaction() as (_conn, cur):
+        existing_row = CdcEntriesRepo.get_for_update(old_record.id, cursor=cur)
 
         if existing_row:
             existing_lsn = existing_row[0]
@@ -94,11 +96,11 @@ def delete(payload: Mapping[str, Any]):
                 return
             else:
                 CdcEntriesRepo.update(
-                    old_record["id"], decimal_zero, event_lsn, cursor=cur
+                    old_record.id, decimal_zero, event_lsn, cursor=cur
                 )
         else:
             existing_total = decimal_zero
-            CdcEntriesRepo.create(old_record["id"], decimal_zero, event_lsn, cursor=cur)
+            CdcEntriesRepo.create(old_record.id, decimal_zero, event_lsn, cursor=cur)
         AggregatesRepo.update(old_total=existing_total, total=decimal_zero, cursor=cur)
 
 
@@ -114,19 +116,17 @@ def main():
                     consumer.acknowledge(msg)
                     continue
 
-                parsed = json.loads(msg.data())
-                print("Received message payload '{}'".format(parsed["payload"]))
+                parsed = msgspec.json.decode(msg.data(), type=EventMessage)
+                print("Received message payload '{}'".format(parsed.payload))
 
-                match parsed["payload"]["op"]:
-                    case "c":
-                        create(parsed["payload"])
-                    case "u":
-                        update(parsed["payload"])
-                    case "d":
-                        delete(parsed["payload"])
-                    case _:
-                        print(f"Unrecognised operation: {parsed['payload']['op']}")
-                        consumer.negative_acknowledge(msg)
+                match parsed.payload:
+                    case CreatePayload():
+                        create(parsed.payload)
+                    case UpdatePayload():
+                        update(parsed.payload)
+                    case DeletePayload():
+                        delete(parsed.payload)
+
                 print("ACKed!")
                 consumer.acknowledge(msg)
             except Exception as exc:

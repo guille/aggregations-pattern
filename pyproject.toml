@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.116.1",
+    "msgspec>=0.19.0",
     "psycopg[binary]>=3.2.9",
     "pulsar-client>=3.8.0",
 ]

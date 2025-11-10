@@ -2,6 +2,8 @@
 
 Small demo app to demonstrate the CDC pattern for serving aggregated data.
 
+Curious for more? [Here](https://guille.github.io/posts/cdc-aggregations/) are 3k words about the project.
+
 ## Technologies used
 
 Web app

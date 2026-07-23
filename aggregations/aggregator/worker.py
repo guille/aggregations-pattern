@@ -1,9 +1,11 @@
 import traceback
 from contextlib import contextmanager
 from decimal import Decimal
+from typing import Never
 
 import msgspec
 import pulsar
+from pulsar import Message
 
 from aggregations.aggregator.event_message import (
     CreatePayload,
@@ -16,7 +18,7 @@ from aggregations.db import target_db
 from aggregations.repos.aggregates import AggregatesRepo
 from aggregations.repos.cdc_entries import CdcEntriesRepo
 
-decimal_zero = Decimal(0)
+decimal_zero: Decimal = Decimal(0)
 
 
 @contextmanager
@@ -104,13 +106,14 @@ def delete(payload: DeletePayload):
         AggregatesRepo.update(old_total=existing_total, total=decimal_zero, cursor=cur)
 
 
-def main():
+def main() -> Never:
     with pulsar_client(PULSAR_URL) as client:
         consumer = client.subscribe(
-            "aggregations.public.invoices", "aggregations-cdc-subscription"
+            topic="aggregations.public.invoices",
+            subscription_name="aggregations-cdc-subscription",
         )
         while True:
-            msg = consumer.receive()
+            msg: Message = consumer.receive()
             try:
                 if msg.data() == b"":
                     consumer.acknowledge(msg)
@@ -123,6 +126,7 @@ def main():
                     case CreatePayload():
                         create(parsed.payload)
                     case UpdatePayload():
+                        update(parsed.payload)
                         update(parsed.payload)
                     case DeletePayload():
                         delete(parsed.payload)
